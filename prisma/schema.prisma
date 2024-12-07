@@ -1,0 +1,46 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["auth", "public"]
+}
+
+model Products {
+  id           String     @id @default(uuid())
+  created_at   DateTime   @default(now())
+  category_id  String
+  name         String
+  descriptions String
+  price        Float
+  image_url    String
+  category     Categories @relation(fields: [category_id], references: [id])
+
+  @@index([category_id])
+  @@schema("public")
+}
+
+model Categories {
+  id           String     @id @default(uuid())
+  created_at   DateTime   @default(now())
+  name         String
+  descriptions String
+  products     Products[]
+
+  @@schema("public")
+}
+
+model Posts {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  content    String
+  image_url  String
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+  title      String
+
+  @@schema("public")
+}

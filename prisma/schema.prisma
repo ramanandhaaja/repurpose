@@ -1,3 +1,18 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+//sudo npx prisma migrate dev --name init
+//sudo npx prisma migrate reset --force
+//sudo npx prisma db pull
+
+//sudo npx prisma db push --accept-data-loss
+//sudo npx prisma generate
+
+
+
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
@@ -7,7 +22,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["auth", "public"]
+  schemas   = ["public", "auth"]
 }
 
 model Products {
@@ -15,9 +30,9 @@ model Products {
   created_at   DateTime   @default(now())
   category_id  String
   name         String
-  descriptions String
+  descriptions String     @db.Text
   price        Float
-  image_url    String
+  image_url    String     @db.Text
   category     Categories @relation(fields: [category_id], references: [id])
 
   @@index([category_id])
@@ -28,19 +43,19 @@ model Categories {
   id           String     @id @default(uuid())
   created_at   DateTime   @default(now())
   name         String
-  descriptions String
+  descriptions String     @db.Text
   products     Products[]
 
   @@schema("public")
 }
 
 model Posts {
-  id         BigInt   @id @default(autoincrement())
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  content    String
-  image_url  String
-  updated_at DateTime @updatedAt @db.Timestamp(6)
-  title      String
+  id          BigInt    @id @default(autoincrement())
+  created_at  DateTime  @default(now()) @db.Timestamptz
+  title       String    @db.Text
+  content     String    @db.Text
+  image_url   String    @db.Text
+  updated_at  DateTime  @updatedAt @db.Timestamp
 
   @@schema("public")
 }

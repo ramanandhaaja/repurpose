@@ -8,7 +8,7 @@
 //sudo npx prisma migrate reset --force
 //sudo npx prisma db pull
 
-//sudo npx prisma db push --accept-data-loss
+//sudo npx prisma db push --accept-data-loss -> pake ini
 //sudo npx prisma generate
 
 
@@ -49,13 +49,47 @@ model Categories {
   @@schema("public")
 }
 
-model Posts {
-  id          BigInt    @id @default(autoincrement())
-  created_at  DateTime  @default(now()) @db.Timestamptz
-  title       String    @db.Text
-  content     String    @db.Text
-  image_url   String    @db.Text
-  updated_at  DateTime  @updatedAt @db.Timestamp
+model OriginalContent {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  title           String
+  contentType     String              @map("content_type")
+  contentUrl      String?             @map("content_url")
+  contentText     String?             @map("content_text")
+  filePath        String?             @map("file_path")
+  fileType        String?             @map("file_type")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  user            User                @relation(fields: [userId], references: [id])
+  repurposedContent RepurposedContent[]
 
   @@schema("public")
+  @@map("original_content")
+}
+
+model RepurposedContent {
+  id                String          @id @default(uuid()) @db.Uuid
+  originalContentId String          @map("original_content_id") @db.Uuid
+  outputType        String          @map("output_type")
+  tone             String
+  content          String
+  characterCount   BigInt             @map("character_count") @db.BigInt
+  isPublished      Boolean         @default(false) @map("is_published")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  originalContent   OriginalContent @relation(fields: [originalContentId], references: [id])
+
+  @@schema("public")
+  @@map("repurposed_content")
+}
+
+model User {
+  id              String            @id @db.Uuid
+  fullName        String?           @map("full_name")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  originalContent OriginalContent[]
+
+  @@schema("public")
+  @@map("users")
 }

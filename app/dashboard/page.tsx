@@ -1,13 +1,9 @@
 import Image from "next/image";
-import { prisma } from '@/app/lib/prisma'
+import { getProducts } from '@/app/hooks/useProducts'
 
 export default async function Home() {
     try {
-        const products = await prisma.products.findMany({
-            include: {
-                category: true
-            }
-        })
+        const products = await getProducts();
         
         return (
             <div className="flex flex-1 flex-col gap-4 p-4">

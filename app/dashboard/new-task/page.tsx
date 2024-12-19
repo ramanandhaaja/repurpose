@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useUpload } from '@/app/hooks/useUploads';
 import { useCharacterCount } from '@/app/hooks/useCharacterCount';
-import useContentRepurposing from '@/app/hooks/useContentRepurposing';
+import useNewTask from '@/app/hooks/useNewTask';
 import type { OutputType } from '@/app/hooks/useCharacterCount';
 import { ContentProcessor } from '@/components/content-processor';
 import { useSearchParams } from 'next/navigation';
@@ -22,7 +22,7 @@ const ContentRepurposer = () => {
   const [showProcessor, setShowProcessor] = useState(false);
   const [useDummyData, setUseDummyData] = useState(true);
 
-  const { isProcessing, generatedContent, repurposeContent } = useContentRepurposing();
+  const { isProcessing, generatedContent, createNewTask } = useNewTask();
 
   const {
     files,
@@ -53,13 +53,13 @@ const ContentRepurposer = () => {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const fileContent = e.target?.result as string;
-          await repurposeContent(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
+          await createNewTask(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
         };
         reader.readAsDataURL(file);
       } else {
         const file = files[0];
         const fileContent = files[0].name;
-        await repurposeContent(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
+        await createNewTask(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
       }
     }
   };
@@ -67,7 +67,7 @@ const ContentRepurposer = () => {
   const handleRegenerate = async (platform: string) => {
     const file = files[0];
     const fileContent = files[0].name;
-    await repurposeContent(file, fileContent, tone, [platform], inputMediaType, url, useDummyData);
+    await createNewTask(file, fileContent, tone, [platform], inputMediaType, url, useDummyData);
   };
 
   return (

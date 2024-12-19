@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import OpenAI from 'openai';
-import { createOriginalContent, createRepurposedContent } from '../lib/services/content.server';
+import { createRepurposedContent } from '../lib/services/repurposed-content';
+import { createOriginalContent } from '../lib/services/original-content';
 
-const useContentRepurposing = () => {
+const useNewTask = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<{
     instagram?: string;
@@ -15,7 +16,7 @@ const useContentRepurposing = () => {
     dangerouslyAllowBrowser: true
   });
 
-  const repurposeContent = async (file: File, input: string, tone: string, outputTypes: string[], inputType: string, url: string, useDummyData: boolean) => {
+  const createNewTask = async (file: File, input: string, tone: string, outputTypes: string[], inputType: string, url: string, useDummyData: boolean) => {
     setIsProcessing(true);
 
     try {
@@ -111,8 +112,11 @@ Format your response like this:
 
           const result = await createOriginalContent(fileData, input, inputType, url);
           console.log('Result:', result);
-          if (!result.success) {
-            throw new Error(result.error);
+          if (result.error) {
+            throw result.error;
+          }
+          if (!result.data) {
+            throw new Error('Failed to create original content');
           }
           originalContentId = result.data.id;
           console.log('Original content saved:', result.data);
@@ -144,8 +148,11 @@ Format your response like this:
                 tone,
                 platformContent,
                 0);
-              if (!result.success) {
-                throw new Error(result.error);
+              if (result.error) {
+                throw result.error;
+              }
+              if (!result.data) {
+                throw new Error('Failed to create repurposed content');
               }
               console.log('Repurposed content saved:', result.data);
             } catch (error) {
@@ -168,7 +175,7 @@ Format your response like this:
     }
   };
 
-  return { isProcessing, generatedContent, repurposeContent };
+  return { isProcessing, generatedContent, createNewTask };
 };
 
-export default useContentRepurposing;
+export default useNewTask;

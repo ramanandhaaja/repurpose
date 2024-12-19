@@ -1,16 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-
-interface RepurposedContent {
-  id: string;
-  original_content_id: string;
-  output_type: string;
-  tone: string;
-  content: string;
-  created_at: string;
-}
+import { RepurposedContent, listRepurposedContent } from '../lib/services/repurposed-content';
 
 interface UseRepurposedContentListReturn {
   contentList: RepurposedContent[];
@@ -29,19 +20,10 @@ export function useRepurposedContentList(): UseRepurposedContentListReturn {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('repurposed_content')
-        .select(`
-          *,
-          original_content (
-            title,
-            content_type
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error: fetchError } = await listRepurposedContent();
 
       if (fetchError) {
-        throw new Error(fetchError.message);
+        throw fetchError;
       }
 
       setContentList(data || []);
@@ -60,6 +42,6 @@ export function useRepurposedContentList(): UseRepurposedContentListReturn {
     contentList,
     isLoading,
     error,
-    refetch: fetchContentList
+    refetch: fetchContentList,
   };
 }

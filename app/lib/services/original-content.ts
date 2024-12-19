@@ -9,6 +9,21 @@ type FileData = {
   size: number;
 };
 
+export interface OriginalContent {
+  id: string;
+  title: string;
+  content: string;
+  content_type: string;
+  url?: string;
+  created_at: string;
+  repurposed_content?: {
+    id: string;
+    output_type: string;
+    tone: string;
+    content: string;
+  }[];
+}
+
 export async function createOriginalContent(fileData: FileData, fileContent: string, inputType: string, url: string) {
   console.log('Creating original content with:', { inputType, url });
   
@@ -100,57 +115,30 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
   }
 }
 
-export async function createRepurposedContent(
-  originalContentId: string,
-  outputType: string,
-  tone: string,
-  content: string,
-  characterCount: number
-) {
+export async function listOriginalContent(): Promise<{ data: OriginalContent[] | null; error: Error | null }> {
   try {
-    console.log('Attempting to create repurposed content...');
-    
-    // First, check if we can access the table
-    const { data: testData, error: testError } = await supabase
-      .from('repurposed_content')
-      .select('*');
-    
-    if (testError) {
-      console.error('Test query error:', testError);
-      return { success: false, error: `Test query failed: ${testError.message}` };
-    }
-    
-    const now = new Date().toISOString();
-    
-    // If we can access the table, try to insert
-    const { data, error } = await supabase
-      .from('repurposed_content')
-      .insert({
-        id: uuidv4(),
-        original_content_id: originalContentId,
-        output_type: outputType,
-        tone: tone,
-        content: content,
-        character_count: characterCount,
-        is_published: false,
-        created_at: now,
-        updated_at: now
-      })
-      .select()
-      .single();
+    const { data, error: fetchError } = await supabase
+      .from('original_content')
+      .select(`
+        *,
+        repurposed_content (
+          id,
+          output_type,
+          tone,
+          content
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Insert error:', error);
-      return { success: false, error: `Insert failed: ${error.message}` };
+    if (fetchError) {
+      return { data: null, error: new Error(fetchError.message) };
     }
 
-    console.log('Repurposed content created successfully:', data);
-    return { success: true, data };
+    return { data, error: null };
   } catch (error) {
-    console.error('Unexpected error:', error);
     return { 
-      success: false, 
-      error: error instanceof Error ? `Unexpected error: ${error.message}` : 'Failed to create repurposed content'
+      data: null, 
+      error: error instanceof Error ? error : new Error('Failed to fetch content list') 
     };
   }
 }

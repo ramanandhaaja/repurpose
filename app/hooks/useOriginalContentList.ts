@@ -1,26 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-
-interface OriginalContent {
-  id: string;
-  userId: string;
-  title: string;
-  content_type: string;
-  content_url: string;
-  content_text: string;
-  file_path: string | null;
-  file_type: string | null;
-  created_at: string;
-  updated_at: string;
-  repurposed_content?: {
-    id: string;
-    output_type: string;
-    tone: string;
-    content: string;
-  }[];
-}
+import { listOriginalContent, type OriginalContent } from '../lib/services/original-content';
 
 interface UseOriginalContentListReturn {
   contentList: OriginalContent[];
@@ -31,7 +12,7 @@ interface UseOriginalContentListReturn {
 
 export function useOriginalContentList(): UseOriginalContentListReturn {
   const [contentList, setContentList] = useState<OriginalContent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchContentList = async () => {
@@ -39,21 +20,10 @@ export function useOriginalContentList(): UseOriginalContentListReturn {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('original_content')
-        .select(`
-          *,
-          repurposed_content (
-            id,
-            output_type,
-            tone,
-            content
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error: fetchError } = await listOriginalContent();
 
       if (fetchError) {
-        throw new Error(fetchError.message);
+        throw fetchError;
       }
 
       setContentList(data || []);

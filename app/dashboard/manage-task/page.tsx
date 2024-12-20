@@ -11,9 +11,10 @@ import {
   Download,
   Clock,
   CheckCircle2,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
-import { useOriginalContentList } from '@/app/hooks/useOriginalContentList';
+import { useOriginalContentList } from '@/app/hooks/useManageTask';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
@@ -38,15 +39,9 @@ interface OriginalContent {
 }
 
 const ContentRepurposingLayout = () => {
-  const { contentList, isLoading, error } = useOriginalContentList();
+  const { contentList, isLoading, error, hasMore, loadMore } = useOriginalContentList();
   const [selectedContent, setSelectedContent] = useState<OriginalContent | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
 
   const getContentForPlatform = (platform: string) => {
     return selectedContent?.repurposed_content?.find(
@@ -69,53 +64,68 @@ const ContentRepurposingLayout = () => {
             </CardHeader>
             <CardContent className="flex-1 overflow-auto">
               <div className="space-y-4">
-                {isLoading ? (
+                {isLoading && contentList.length === 0 ? (
                   <div>Loading...</div>
                 ) : (
-                  contentList.map((content) => (
-                    <div 
-                      key={content.id} 
-                      className={`p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-500 transition-colors ${
-                        selectedContent?.id === content.id ? 'border-blue-500 bg-blue-50' : ''
-                      }`}
-                      onClick={() => setSelectedContent(content)}
-                    >
-                      <div className="flex items-center gap-4">
-                        {content.content_url && content.content_type === 'image' && (
-                          <div className="flex-shrink-0">
-                            <img 
-                              src={content.content_url} 
-                              alt={content.title || 'Content image'} 
-                              className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent triggering parent click
-                                setPreviewImage(content.content_url);
-                              }}
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-medium">{content.title || 'Untitled'}</h3>
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            {format(new Date(content.created_at as string), 'MMM dd, yyyy HH:mm')}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
-                              {content.content_type}
-                            </span>
-                            {content.repurposed_content?.map((repurposed) => (
-                              <span key={repurposed.id} className="text-xs px-2 py-1 bg-blue-100 rounded-full">
-                                {repurposed.output_type}
+                  <>
+                    {contentList.map((content) => (
+                      <div 
+                        key={content.id} 
+                        className={`p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-500 transition-colors ${
+                          selectedContent?.id === content.id ? 'border-blue-500 bg-blue-50' : ''
+                        }`}
+                        onClick={() => setSelectedContent(content)}
+                      >
+                        <div className="flex items-center gap-4">
+                          {content.content_url && content.content_type === 'image' && (
+                            <div className="flex-shrink-0">
+                              <img 
+                                src={content.content_url} 
+                                alt={content.title || 'Content image'} 
+                                className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent triggering parent click
+                                  setPreviewImage(content.content_url);
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <h3 className="font-medium">{content.title || 'Untitled'}</h3>
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(content.created_at as string), 'MMM dd, yyyy HH:mm')}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                                {content.content_type}
                               </span>
-                            ))}
+                              {content.repurposed_content?.map((repurposed) => (
+                                <span key={repurposed.id} className="text-xs px-2 py-1 bg-blue-100 rounded-full">
+                                  {repurposed.output_type}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    {hasMore && (
+                      <div className="mt-4 flex justify-center">
+                        <Button
+                          variant="outline"
+                          onClick={loadMore}
+                          className="flex items-center gap-2"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Loading...' : 'Load More'}
+                          {!isLoading && <RefreshCw className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>

@@ -11,17 +11,27 @@ type FileData = {
 
 export interface OriginalContent {
   id: string;
+  userId: string;
   title: string;
-  content: string;
   content_type: string;
-  url?: string;
+  content_url: string;
+  content_text: string;
+  file_path: string | null;
+  file_type: string | null;
   created_at: string;
+  updated_at: string;
   repurposed_content?: {
     id: string;
     output_type: string;
     tone: string;
     content: string;
   }[];
+}
+
+export interface PaginatedResponse<T> {
+  data: T[] | null;
+  error: Error | null;
+  count: number;
 }
 
 export async function createOriginalContent(fileData: FileData, fileContent: string, inputType: string, url: string) {
@@ -115,8 +125,21 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
   }
 }
 
-export async function listOriginalContent(): Promise<{ data: OriginalContent[] | null; error: Error | null }> {
+export async function listOriginalContent(
+  page: number = 1,
+  pageSize: number = 5
+): Promise<PaginatedResponse<OriginalContent>> {
   try {
+    // First, get the total count
+    const { count, error: countError } = await supabase
+      .from('original_content')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) {
+      return { data: null, error: new Error(countError.message), count: 0 };
+    }
+
+    // Then get the paginated data
     const { data, error: fetchError } = await supabase
       .from('original_content')
       .select(`
@@ -128,17 +151,19 @@ export async function listOriginalContent(): Promise<{ data: OriginalContent[] |
           content
         )
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (fetchError) {
-      return { data: null, error: new Error(fetchError.message) };
+      return { data: null, error: new Error(fetchError.message), count: 0 };
     }
 
-    return { data, error: null };
+    return { data, error: null, count: count || 0 };
   } catch (error) {
     return { 
       data: null, 
-      error: error instanceof Error ? error : new Error('Failed to fetch content list') 
+      error: error instanceof Error ? error : new Error('Failed to fetch content list'),
+      count: 0
     };
   }
 }

@@ -1,19 +1,24 @@
 'use client';
 import React, { useState } from 'react';
-import { Upload, FileType, Settings2, RefreshCw, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+
+// UI Components
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useUpload } from '@/app/hooks/useUploads';
-import { useCharacterCount } from '@/app/hooks/useCharacterCount';
-import useNewTask from '@/app/hooks/useNewTask';
-import type { OutputType } from '@/app/hooks/useCharacterCount';
 import { ContentProcessor } from '@/components/content-processor';
-import { useSearchParams } from 'next/navigation';
+
+// Icons
+import { Upload, FileType, Settings2, RefreshCw, X } from 'lucide-react';
+
+// Hooks
+import useNewTask, { useCharacterCount, useUpload, type OutputType } from '@/app/hooks/useNewTask';
+import { useProcessInputType } from '@/app/hooks/useProcessInputType';
 
 const ContentRepurposer = () => {
+  // ===== State Management =====
   const searchParams = useSearchParams();
   const [selectedOutputTypes, setSelectedOutputTypes] = useState<OutputType[]>(['instagram']);
   const [inputMediaType, setInputMediaType] = useState<string>(searchParams.get('type') || '');
@@ -22,8 +27,9 @@ const ContentRepurposer = () => {
   const [showProcessor, setShowProcessor] = useState(false);
   const [useDummyData, setUseDummyData] = useState(true);
 
+  // ===== Custom Hooks =====
   const { isProcessing, generatedContent, createNewTask } = useNewTask();
-
+  const { isProcessingInputType, generatedInputType, processInputType, processUrlInputType } = useProcessInputType();
   const {
     files,
     isDragging,
@@ -33,33 +39,51 @@ const ContentRepurposer = () => {
     handleFileSelect,
     removeFile,
   } = useUpload();
-
   const {
     characterCount,
     isOverLimit,
     maxCharacters,
   } = useCharacterCount(selectedOutputTypes[0]);
 
+  // ===== Event Handlers =====
   const handleUrlInput = (value: string) => {
     setUrl(value);
   };
 
-  
   const handleRepurpose = async () => {
     setShowProcessor(true);
     if (files.length > 0) {
-      if (inputMediaType === 'image') {
-        const file = files[0];
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const fileContent = e.target?.result as string;
-          await createNewTask(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        const file = files[0];
-        const fileContent = files[0].name;
-        await createNewTask(file, fileContent, tone, selectedOutputTypes, inputMediaType, url, useDummyData);
+      const file = files[0];
+      try {
+        //process the input
+        const { fileContent, inputType } = await processInputType(file);
+        await createNewTask(
+          file,
+          fileContent,
+          tone,
+          selectedOutputTypes,
+          inputType,
+          url,
+          useDummyData
+        );
+      } catch (error) {
+        console.error('Error processing file:', error);
+      }
+    } else if (url) {
+      const file = files[0];
+      try {
+        const { fileContent, inputType } = await processUrlInputType(url);
+        await createNewTask(
+          file,
+          fileContent,
+          tone,
+          selectedOutputTypes,
+          inputType,
+          url,
+          useDummyData
+        );
+      } catch (error) {
+        console.error('Error processing URL:', error);
       }
     }
   };
@@ -70,6 +94,7 @@ const ContentRepurposer = () => {
     await createNewTask(file, fileContent, tone, [platform], inputMediaType, url, useDummyData);
   };
 
+  // ===== Render UI =====
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="space-y-6">
@@ -234,7 +259,7 @@ const ContentRepurposer = () => {
             <Button 
               className="w-full" 
               size="lg"
-              disabled={files.length === 0 || selectedOutputTypes.length === 0 || !tone}
+              disabled={files.length === 0 && !url || selectedOutputTypes.length === 0 || !tone}
               onClick={handleRepurpose}
             >
               <RefreshCw className="w-4 h-4 mr-2" />

@@ -1,7 +1,131 @@
-import { useState } from 'react';
-import OpenAI from 'openai';
-import { createRepurposedContent } from '../lib/services/repurposed-content';
-import { createOriginalContent } from '../lib/services/original-content';
+import { useState, useEffect, useCallback } from 'react';
+import { createNewTask, type GeneratedContent } from '@/lib/services/openai-api';
+
+// ===== Types and Interfaces =====
+export type OutputType = 'instagram' | 'twitter' | 'linkedin';
+
+export interface FileWithPreview extends File {
+  preview?: string;
+}
+
+export interface UseUploadReturn {
+  files: FileWithPreview[];
+  isDragging: boolean;
+  handleDragOver: (e: React.DragEvent) => void;
+  handleDragLeave: () => void;
+  handleDrop: (e: React.DragEvent) => void;
+  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  removeFile: (index: number) => void;
+  clearFiles: () => void;
+}
+
+export interface UseCharacterCountReturn {
+  characterCount: number;
+  isOverLimit: boolean;
+  maxCharacters: number;
+  updateText: (text: string) => void;
+}
+
+interface CharacterLimits {
+  instagram: number;
+  twitter: number;
+  linkedin: number;
+}
+
+// ===== Constants =====
+const CHAR_LIMITS: CharacterLimits = {
+  instagram: 2200,
+  twitter: 280,
+  linkedin: 3000,
+};
+
+// ===== Hooks =====
+export const useUpload = (): UseUploadReturn => {
+  const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processFiles = useCallback((acceptedFiles: File[]) => {
+    const processedFiles = acceptedFiles.map(file => 
+      Object.assign(file, {
+        preview: URL.createObjectURL(file)
+      })
+    );
+    setFiles(prev => [...prev, ...processedFiles]);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    processFiles(droppedFiles);
+  }, [processFiles]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      processFiles(selectedFiles);
+    }
+  }, [processFiles]);
+
+  const removeFile = useCallback((index: number) => {
+    setFiles(prev => {
+      const newFiles = [...prev];
+      URL.revokeObjectURL(newFiles[index].preview || '');
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  }, []);
+
+  const clearFiles = useCallback(() => {
+    files.forEach(file => {
+      URL.revokeObjectURL(file.preview || '');
+    });
+    setFiles([]);
+  }, [files]);
+
+  return {
+    files,
+    isDragging,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleFileSelect,
+    removeFile,
+    clearFiles
+  };
+};
+
+export const useCharacterCount = (outputType: OutputType): UseCharacterCountReturn => {
+  const [characterCount, setCharacterCount] = useState(0);
+  const [isOverLimit, setIsOverLimit] = useState(false);
+  const maxCharacters = CHAR_LIMITS[outputType];
+
+  const updateText = (text: string) => {
+    const count = text.length;
+    setCharacterCount(count);
+    setIsOverLimit(count > maxCharacters);
+  };
+
+  useEffect(() => {
+    setIsOverLimit(characterCount > maxCharacters);
+  }, [outputType, characterCount, maxCharacters]);
+
+  return {
+    characterCount,
+    isOverLimit,
+    maxCharacters,
+    updateText,
+  };
+};
 
 const useNewTask = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -11,163 +135,34 @@ const useNewTask = () => {
     linkedin?: string;
   }>();
 
-  const openai = new OpenAI({
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    dangerouslyAllowBrowser: true
-  });
-
-  const createNewTask = async (file: File, input: string, tone: string, outputTypes: string[], inputType: string, url: string, useDummyData: boolean) => {
+  const handleCreateNewTask = async (
+    file: File,
+    input: string,
+    tone: string,
+    outputTypes: string[],
+    inputType: string,
+    url: string,
+    useDummyData: boolean
+  ) => {
     setIsProcessing(true);
-
     try {
-      const platformInstructions = outputTypes.map(type => {
-        if (type === 'twitter') {
-          return "- For Twitter: Create a thread of 3 tweets (each starting with a number). Keep each tweet under 280 characters.";
-        } else if (type === 'instagram') {
-          return "- For Instagram: Create a caption with emojis and relevant hashtags.";
-        } else {
-          return "- For LinkedIn: Create a professional post that's engaging and informative.";
-        }
-      }).join('\n');
-
-      const systemPrompt = `You are a content repurposing expert. Analyze the ${inputType} and convert it into multiple formats with a ${tone} tone.
-Please provide content for each requested platform, clearly separated by platform headers:
-${platformInstructions}
-
-Format your response like this:
-[INSTAGRAM]
-(Instagram content here)
-
-[TWITTER]
-1. (First tweet)
-2. (Second tweet)
-3. (Third tweet)
-
-[LINKEDIN]
-(LinkedIn content here)`;
-
-      console.log('Input type:', inputType);
-      console.log('System Prompt:', systemPrompt);
-
-      let content: string;
-      if (!useDummyData) {
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  "type": "image_url",
-                  "image_url": {
-                    "url": input,
-                  },
-                },
-              ],
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000
-        });
-        console.log('Response:', response);
-        content = response.choices[0]?.message?.content?.trim() || '';
-      } else {
-
-        //DUMMY
-        const response = `[INSTAGRAM]
-📸 Check out this amazing content! Perfect for your feed. #ContentCreation #SocialMedia
-
-[TWITTER]
-1. 🚀 Exciting new content alert! Here's what you need to know...
-2. 💡 Pro tip: Repurpose your content across platforms for maximum reach
-3. 🎯 Want to learn more? Check out our full guide!
-
-[LINKEDIN]
-🔍 Professional insight: Content repurposing is key to maximizing your digital presence. Here's how we can help you achieve better engagement across all platforms...`.trim();
-
-        console.log('Response:', response);
-        content = response.trim();
-        //DUMMY
-      }
+      const { content, error } = await createNewTask(
+        file,
+        input,
+        tone,
+        outputTypes,
+        inputType,
+        url,
+        useDummyData
+      );
+      
+      if (error) throw error;
       if (content) {
-        const newContent: { [key: string]: string | string[] } = {};
-        let originalContentId: string;
-
-        //create orginal content
-
-        try {
-          console.log('Attempting to create original content...');
-
-          // Create a serializable file data object
-          const fileData = {
-            name: file.name,
-            type: file.type,
-            size: file.size
-          };
-
-          const result = await createOriginalContent(fileData, input, inputType, url);
-          console.log('Result:', result);
-          if (result.error) {
-            throw result.error;
-          }
-          if (!result.data) {
-            throw new Error('Failed to create original content');
-          }
-          originalContentId = result.data.id;
-          console.log('Original content saved:', result.data);
-        } catch (error) {
-          console.error('Error creating content:', error);
-          throw error;
-        }
-
-        // Parse the content for each platform
-        for (const type of outputTypes) {
-          const platformRegex = new RegExp(`\\[${type.toUpperCase()}\\]([\\s\\S]*?)(?=\\[|$)`, 'i');
-          const match = content.match(platformRegex);
-          if (match && match[1]) {
-            const platformContent = match[1].trim();
-            if (type === 'twitter') {
-              // Split Twitter content into an array of tweets, removing empty lines
-              newContent[type] = platformContent
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line && !line.startsWith('['));
-            } else {
-              newContent[type] = platformContent;
-            }
-
-            //create repurposed content result
-            try {
-              const result = await createRepurposedContent(originalContentId,
-                type,
-                tone,
-                platformContent,
-                0);
-              if (result.error) {
-                throw result.error;
-              }
-              if (!result.data) {
-                throw new Error('Failed to create repurposed content');
-              }
-              console.log('Repurposed content saved:', result.data);
-            } catch (error) {
-              console.error('Error creating content:', error);
-              throw error;
-            }
-          }
-        }
-
         setGeneratedContent(prev => ({
           ...prev,
-          ...newContent
+          ...content
         }));
       }
-
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -175,7 +170,11 @@ Format your response like this:
     }
   };
 
-  return { isProcessing, generatedContent, createNewTask };
+  return {
+    isProcessing,
+    generatedContent,
+    createNewTask: handleCreateNewTask
+  };
 };
 
 export default useNewTask;

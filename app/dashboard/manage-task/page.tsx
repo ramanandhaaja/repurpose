@@ -12,12 +12,17 @@ import {
   Clock,
   CheckCircle2,
   X,
-  RefreshCw
+  RefreshCw,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { useOriginalContentList } from '@/app/hooks/useManageTask';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import "react-day-picker/dist/style.css"; // Add this import at the top
+import { cn } from "@/lib/utils";
 
 interface OriginalContent {
   id: string;
@@ -39,14 +44,45 @@ interface OriginalContent {
 }
 
 const ContentRepurposingLayout = () => {
-  const { contentList, isLoading, error, hasMore, loadMore } = useOriginalContentList();
+  const { contentList, isLoading, hasMore, loadMore } = useOriginalContentList();
   const [selectedContent, setSelectedContent] = useState<OriginalContent | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [openPreviewDialog, setOpenPreviewDialog] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState("12:00");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   const getContentForPlatform = (platform: string) => {
     return selectedContent?.repurposed_content?.find(
       content => content.output_type.toLowerCase() === platform.toLowerCase()
     )?.content || '';
+  };
+
+  const hasContentForPlatform = (platform: string) => {
+    return !!selectedContent?.repurposed_content?.some(
+      content => content.output_type.toLowerCase() === platform.toLowerCase() && content.content.trim().length > 0
+    );
+  };
+
+  const getScheduledDateTime = () => {
+    if (!selectedDate) return null;
+    const [hours, minutes] = selectedTime.split(':');
+    const datetime = new Date(selectedDate);
+    datetime.setHours(parseInt(hours), parseInt(minutes));
+    return datetime;
+  };
+
+  const handleSchedule = () => {
+    const scheduledDateTime = getScheduledDateTime();
+    console.log('Scheduling for:', selectedPlatform, 'on', scheduledDateTime);
+    setIsScheduleOpen(false);
+  };
+
+  const handleScheduleClick = (platform: string) => {
+    setSelectedPlatform(platform);
+    setScheduleDialogOpen(true);
   };
 
   return (
@@ -69,23 +105,23 @@ const ContentRepurposingLayout = () => {
                 ) : (
                   <>
                     {contentList.map((content) => (
-                      <div 
-                        key={content.id} 
-                        className={`p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-500 transition-colors ${
-                          selectedContent?.id === content.id ? 'border-blue-500 bg-blue-50' : ''
-                        }`}
+                      <div
+                        key={content.id}
+                        className={`p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-500 transition-colors ${selectedContent?.id === content.id ? 'border-blue-500 bg-blue-50' : ''
+                          }`}
                         onClick={() => setSelectedContent(content)}
                       >
                         <div className="flex items-center gap-4">
                           {content.content_url && content.content_type === 'image' && (
                             <div className="flex-shrink-0">
-                              <img 
-                                src={content.content_url} 
-                                alt={content.title || 'Content image'} 
+                              <img
+                                src={content.content_url}
+                                alt={content.title || 'Content image'}
                                 className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Prevent triggering parent click
-                                  setPreviewImage(content.content_url);
+                                  e.stopPropagation();
+                                  setPreviewImageUrl(content.content_url);
+                                  setOpenPreviewDialog(true);
                                 }}
                               />
                             </div>
@@ -170,9 +206,15 @@ const ContentRepurposingLayout = () => {
                       <span className="text-sm text-gray-500">
                         {getContentForPlatform('twitter').length} / 280 characters
                       </span>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                        onClick={() => handleScheduleClick('twitter')}
+                        disabled={!hasContentForPlatform('twitter')}
+                      >
                         <Download className="w-4 h-4" />
-                        Download
+                        Schedule Post
                       </Button>
                     </div>
                   </div>
@@ -191,9 +233,15 @@ const ContentRepurposingLayout = () => {
                       <span className="text-sm text-gray-500">
                         {getContentForPlatform('instagram').length} / 2200 characters
                       </span>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                        onClick={() => handleScheduleClick('instagram')}
+                        disabled={!hasContentForPlatform('instagram')}
+                      >
                         <Download className="w-4 h-4" />
-                        Download
+                        Schedule Post
                       </Button>
                     </div>
                   </div>
@@ -212,9 +260,15 @@ const ContentRepurposingLayout = () => {
                       <span className="text-sm text-gray-500">
                         {getContentForPlatform('linkedin').length} / 3000 characters
                       </span>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                        onClick={() => handleScheduleClick('linkedin')}
+                        disabled={!hasContentForPlatform('linkedin')}
+                      >
                         <Download className="w-4 h-4" />
-                        Download
+                        Schedule Post
                       </Button>
                     </div>
                   </div>
@@ -225,26 +279,93 @@ const ContentRepurposingLayout = () => {
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="sm:max-w-[800px] p-0">
-          <DialogTitle asChild>
-            <VisuallyHidden>Image Preview</VisuallyHidden>
-          </DialogTitle>
-          <div className="relative">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
-            >
-              <X className="h-4 w-4 text-white" />
-            </button>
-            {previewImage && (
+      {/* Replace the existing Image Preview Modal with this */}
+      <Dialog open={openPreviewDialog} onOpenChange={setOpenPreviewDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogTitle>Image Preview</DialogTitle>
+          {previewImageUrl && (
+            <div className="relative w-full h-full flex items-center justify-center">
               <img
-                src={previewImage}
+                src={previewImageUrl}
                 alt="Preview"
-                className="w-full h-auto max-h-[80vh] object-contain"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
               />
-            )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Replace the existing Scheduling Modal with this */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle>Schedule {selectedPlatform} Post</DialogTitle>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <h4 className="font-medium">Content Preview</h4>
+              <div className="p-4 rounded-md bg-gray-50 max-h-[200px] overflow-y-auto">
+                {getContentForPlatform(selectedPlatform)}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium">Select Date and Time</h4>
+              <div className="grid gap-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-700">
+                      {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-center">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      className="rounded-md border"
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const compareDate = new Date(date);
+                        compareDate.setHours(0, 0, 0, 0);
+                        return compareDate < today;
+                      }}
+                      initialFocus
+                    />
+                  </div>
+                </div>
+
+
+
+                <select
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {Array.from({ length: 24 * 4 }).map((_, i) => {
+                    const hour = Math.floor(i / 4);
+                    const minute = (i % 4) * 15;
+                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    return (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              handleSchedule();
+              setScheduleDialogOpen(false);
+            }}>
+              Schedule
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight,
@@ -28,7 +29,9 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="outline">Log in</Button>
+              <Link href="/dashboard">
+                <Button variant="outline">Log in</Button>
+              </Link>
               <Button>Get Started</Button>
             </div>
           </div>

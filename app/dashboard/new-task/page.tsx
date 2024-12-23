@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 // UI Components
@@ -17,11 +17,20 @@ import { Upload, FileType, Settings2, RefreshCw, X } from 'lucide-react';
 import useNewTask, { useCharacterCount, useUpload, type OutputType } from '@/app/hooks/useNewTask';
 import { useProcessInputType } from '@/app/hooks/useProcessInputType';
 
-const ContentRepurposer = () => {
-  // ===== State Management =====
+const ContentForm = () => {
   const searchParams = useSearchParams();
-  const [selectedOutputTypes, setSelectedOutputTypes] = useState<OutputType[]>(['instagram']);
   const inputMediaType = searchParams.get('type') || '';
+  
+  return <ContentRepurposer inputMediaType={inputMediaType} />;
+};
+
+interface ContentRepurposerProps {
+  inputMediaType: string;
+}
+
+const ContentRepurposer = ({ inputMediaType }: ContentRepurposerProps) => {
+  // ===== State Management =====
+  const [selectedOutputTypes, setSelectedOutputTypes] = useState<OutputType[]>(['instagram']);
   const [tone, setTone] = useState('');
   const [url, setUrl] = useState('');
   const [showProcessor, setShowProcessor] = useState(false);
@@ -278,4 +287,10 @@ const ContentRepurposer = () => {
   );
 };
 
-export default ContentRepurposer;
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ContentForm />
+    </Suspense>
+  );
+}

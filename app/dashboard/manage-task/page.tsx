@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -113,10 +114,12 @@ const ContentRepurposingLayout = () => {
                         <div className="flex items-center gap-4">
                           {content.content_url && content.content_type === 'image' && (
                             <div className="flex-shrink-0">
-                              <img
+                              <Image
                                 src={content.content_url}
                                 alt={content.title || 'Content image'}
-                                className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                width={64}
+                                height={64}
+                                className="object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setPreviewImageUrl(content.content_url);

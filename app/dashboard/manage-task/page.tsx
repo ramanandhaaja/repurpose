@@ -11,18 +11,17 @@ import {
   Download,
   Clock,
   CheckCircle2,
-  X,
   RefreshCw,
   Calendar as CalendarIcon
 } from 'lucide-react';
 import { useOriginalContentList } from '@/app/hooks/useManageTask';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
+//import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+//import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import "react-day-picker/dist/style.css"; // Add this import at the top
-import { cn } from "@/lib/utils";
+//import { cn } from "@/lib/utils";
 
 interface OriginalContent {
   id: string;

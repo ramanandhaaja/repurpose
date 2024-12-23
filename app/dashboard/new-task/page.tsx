@@ -21,7 +21,7 @@ const ContentRepurposer = () => {
   // ===== State Management =====
   const searchParams = useSearchParams();
   const [selectedOutputTypes, setSelectedOutputTypes] = useState<OutputType[]>(['instagram']);
-  const [inputMediaType, setInputMediaType] = useState<string>(searchParams.get('type') || '');
+  const inputMediaType = searchParams.get('type') || '';
   const [tone, setTone] = useState('');
   const [url, setUrl] = useState('');
   const [showProcessor, setShowProcessor] = useState(false);

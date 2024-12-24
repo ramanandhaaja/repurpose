@@ -37,8 +37,8 @@ export default function LoginPage() {
         router.refresh() // Refresh the current page to update the session
         router.push('/dashboard')
       }
-    } catch (error: any) {
-      setError(error?.message || 'An error occurred during sign in')
+    } catch (error: Error | unknown) {
+      setError(error instanceof Error ? error.message : 'An error occurred during sign in')
     } finally {
       setIsLoading(false)
     }

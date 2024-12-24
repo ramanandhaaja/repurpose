@@ -44,8 +44,8 @@ export default function SignUpPage() {
       if (data?.user) {
         router.push('/login?message=Check your email to confirm your account')
       }
-    } catch (error: any) {
-      setError(error?.message || 'An error occurred during sign up')
+    } catch (error: Error | unknown) {
+      setError(error instanceof Error ? error.message : 'An error occurred during sign up')
     } finally {
       setIsLoading(false)
     }

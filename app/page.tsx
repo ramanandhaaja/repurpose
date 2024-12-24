@@ -63,11 +63,16 @@ const LandingPage = () => {
               <div className="absolute -top-8 -left-8 w-72 h-72 bg-blue-100 rounded-full filter blur-3xl opacity-70"></div>
               <div className="absolute -bottom-8 -right-8 w-72 h-72 bg-purple-100 rounded-full filter blur-3xl opacity-70"></div>
               <div className="relative">
-                <img 
-                  src="/api/placeholder/600/400" 
-                  alt="KontentRupa Dashboard"
-                  className="rounded-lg shadow-2xl"
-                />
+                <video
+                  src="/hero-anim.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="rounded-lg w-[500px] h-[400px] object-cover"
+                >
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
           </div>
@@ -248,7 +253,7 @@ const LandingPage = () => {
             <div className="bg-white p-8 rounded-lg shadow-sm">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                  <img src="/testimonial1.jpg" alt="Sarah" className="w-full h-full object-cover" />
+                  <img src="/testimonial1.jpg" alt="Sarah" width={48} height={48} className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h4 className="font-semibold">Sarah Johnson</h4>
@@ -262,7 +267,7 @@ const LandingPage = () => {
             <div className="bg-white p-8 rounded-lg shadow-sm">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                  <img src="/testimonial2.jpg" alt="Mark" className="w-full h-full object-cover" />
+                  <img src="/testimonial2.jpg" alt="Mark" width={48} height={48} className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h4 className="font-semibold">Mark Chen</h4>
@@ -276,7 +281,7 @@ const LandingPage = () => {
             <div className="bg-white p-8 rounded-lg shadow-sm">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                  <img src="/testimonial3.jpg" alt="Emily" className="w-full h-full object-cover" />
+                  <img src="/testimonial3.jpg" alt="Emily" width={48} height={48} className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h4 className="font-semibold">Emily Rodriguez</h4>
@@ -343,7 +348,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t text-center text-sm text-gray-600">
-            <p>© 2024 KontentRupa. All rights reserved.</p>
+            <p> 2024 KontentRupa. All rights reserved.</p>
           </div>
         </div>
       </footer>

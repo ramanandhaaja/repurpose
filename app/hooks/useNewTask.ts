@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createNewTask, type GeneratedContent } from '@/lib/services/openai-api';
+import { createNewTask, createRegenerateTask, type GeneratedContent } from '@/lib/services/openai-api';
 
 // ===== Types and Interfaces =====
 export type OutputType = 'instagram' | 'twitter' | 'linkedin';
@@ -134,6 +134,8 @@ const useNewTask = () => {
     twitter?: string[];
     linkedin?: string;
   }>();
+  const [generatedContentId, setGeneratedContentId] = useState<string | null>(null);
+  
 
   const handleCreateNewTask = async (
     file: File,
@@ -146,7 +148,7 @@ const useNewTask = () => {
   ) => {
     setIsProcessing(true);
     try {
-      const { content, error } = await createNewTask(
+      const { content, error, originalContentId } = await createNewTask(
         file,
         input,
         tone,
@@ -154,6 +156,47 @@ const useNewTask = () => {
         inputType,
         url,
         useDummyData
+      );
+      
+      console.log('Generated content nandha:', content);
+      if (error) throw error;
+      if (content) {
+        setGeneratedContent(prev => ({
+          ...prev,
+          ...content
+        }));
+        setGeneratedContentId(originalContentId);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCreateRegenerateTask = async (
+    file: File,
+    input: string,
+    tone: string,
+    outputTypes: string[],
+    inputType: string,
+    url: string,
+    useDummyData: boolean,
+    generatedContent: GeneratedContent,
+    generatedContentId : string
+  ) => {
+    setIsProcessing(true);
+    try {
+      const { content, error } = await createRegenerateTask(
+        file,
+        input,
+        tone,
+        outputTypes,
+        inputType,
+        url,
+        useDummyData,
+        generatedContent,
+        generatedContentId
       );
       
       if (error) throw error;
@@ -173,7 +216,9 @@ const useNewTask = () => {
   return {
     isProcessing,
     generatedContent,
-    createNewTask: handleCreateNewTask
+    generatedContentId,
+    createNewTask: handleCreateNewTask,
+    createRegenerateTask: handleCreateRegenerateTask
   };
 };
 

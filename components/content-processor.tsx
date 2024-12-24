@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Instagram, Twitter, Linkedin, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,9 +37,9 @@ export function ContentProcessor({
   return (
     <Tabs defaultValue="instagram" className="w-full">
       <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="instagram">Instagram</TabsTrigger>
-        <TabsTrigger value="twitter">Twitter</TabsTrigger>
-        <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
+        <TabsTrigger value="instagram" className="flex items-center gap-2"><Instagram className="w-4 h-4"/>Instagram</TabsTrigger>
+        <TabsTrigger value="twitter" className="flex items-center gap-2"><Twitter className="w-4 h-4" />Twitter</TabsTrigger>
+        <TabsTrigger value="linkedin" className="flex items-center gap-2"><Linkedin className="w-4 h-4" />LinkedIn</TabsTrigger>
       </TabsList>
 
       <TabsContent value="instagram">

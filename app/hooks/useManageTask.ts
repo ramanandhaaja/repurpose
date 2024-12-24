@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { listOriginalContent, type OriginalContent } from '@/lib/services/original-content';
+import { supabase } from '@/lib/supabase';
+import { createScheduledPost, type CreateScheduledPostInput } from '@/lib/services/scheduled-post';
 
 interface UseOriginalContentListReturn {
   contentList: OriginalContent[];
@@ -68,5 +70,54 @@ export function useOriginalContentList(): UseOriginalContentListReturn {
     hasMore: contentList.length < totalCount,
     loadMore,
     refetch
+  };
+}
+
+interface ScheduledPost {
+  platform: string;
+  content: string;
+  scheduled_for: string;
+  original_content_id: string;
+  repurposed_content_id: string;
+  status: 'pending' | 'published' | 'failed';
+}
+
+export function useSchedulePost() {
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const schedulePost = async ({
+    platform,
+    content,
+    scheduledFor,
+    originalContentId,
+    repurposedContentId
+  }: CreateScheduledPostInput) => {
+    try {
+      setIsScheduling(true);
+      setError(null);
+
+      const data = await createScheduledPost({
+        platform,
+        content,
+        scheduledFor,
+        originalContentId,
+        repurposedContentId
+      });
+
+      return data;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to schedule post';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
+  return {
+    schedulePost,
+    isScheduling,
+    error,
   };
 }

@@ -37,7 +37,7 @@ const ContentRepurposer = ({ inputMediaType }: ContentRepurposerProps) => {
   const [useDummyData, setUseDummyData] = useState(true);
 
   // ===== Custom Hooks =====
-  const { isProcessing, generatedContent, createNewTask } = useNewTask();
+  const { isProcessing, generatedContent, generatedContentId, createNewTask, createRegenerateTask } = useNewTask();
   const { isProcessingInputType, generatedInputType, processInputType, processUrlInputType } = useProcessInputType();
   const {
     files,
@@ -97,11 +97,38 @@ const ContentRepurposer = ({ inputMediaType }: ContentRepurposerProps) => {
     }
   };
 
+  
+
   const handleRegenerate = async (platform: string) => {
-    const file = files[0];
-    const fileContent = files[0].name;
-    await createNewTask(file, fileContent, tone, [platform], inputMediaType, url, useDummyData);
-  };
+    setShowProcessor(true);
+    if (files.length > 0) {
+      const file = files[0];
+      try {
+        //process the input
+        const { fileContent, inputType } = await processInputType(file);
+        if (!generatedContent || !generatedContentId) {
+          console.error('No generated content or content ID available for regeneration');
+          return;
+        }
+        await createRegenerateTask(file, fileContent, tone, [platform], inputMediaType, url, useDummyData, generatedContent, generatedContentId);
+      } catch (error) {
+        console.error('Error processing file:', error);
+      }
+    } else if (url) {
+      const file = files[0];
+      try {
+        const { fileContent, inputType } = await processUrlInputType(url);
+        if (!generatedContent || !generatedContentId) {
+          console.error('No generated content or content ID available for regeneration');
+          return;
+        }
+        await createRegenerateTask(file, fileContent, tone, [platform], inputMediaType, url, useDummyData, generatedContent, generatedContentId);
+      } catch (error) {
+        console.error('Error processing URL:', error);
+      }
+    }
+
+     };
 
   // ===== Render UI =====
   return (

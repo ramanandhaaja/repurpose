@@ -2,6 +2,8 @@
 
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 
 type FileData = {
   name: string;
@@ -25,6 +27,7 @@ export interface OriginalContent {
     output_type: string;
     tone: string;
     content: string;
+    created_at: string;
   }[];
 }
 
@@ -38,6 +41,25 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
   console.log('Creating original content with:', { inputType, url });
   
   try {
+    const cookieStore = await cookies();
+    const supabaseServer = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabaseServer.auth.getUser();
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+
+    console.log('Authenticated user:', user.id);
     console.log('Attempting to upload file and insert content...');
     console.log('File details:', fileData);
     
@@ -53,7 +75,7 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
       const response = await fetch(fileContent);
       const blob = await response.blob();
       
-      const { data, error } = await supabase
+      const { data, error } = await supabaseServer
         .storage
         .from('filestorage')
         .upload(fileName, blob, {
@@ -66,7 +88,7 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
       uploadError = error;
     } else {
       // For other files, upload the content directly
-      const { data, error } = await supabase
+      const { data, error } = await supabaseServer
         .storage
         .from('filestorage')
         .upload(fileName, fileContent, {
@@ -87,7 +109,7 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
     console.log('File uploaded successfully:', uploadData);
     
     // Get public URL for the uploaded file
-    const { data: { publicUrl } } = supabase
+    const { data: { publicUrl } } = supabaseServer
       .storage
       .from('filestorage')
       .getPublicUrl(fileName);
@@ -97,11 +119,11 @@ export async function createOriginalContent(fileData: FileData, fileContent: str
     const now = new Date().toISOString();
     
     // Insert content record with file information
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('original_content')
       .insert({
         id: uuidv4(),
-        userId: '00000000-0000-0000-0000-000000000001', // TODO: Replace with actual user ID
+        userId: user.id,
         title: inputType + ' to Social Media',
         content_type: inputType,
         content_url: url || publicUrl || "",
@@ -148,7 +170,8 @@ export async function listOriginalContent(
           id,
           output_type,
           tone,
-          content
+          content,
+          created_at
         )
       `)
       .order('created_at', { ascending: false })
@@ -167,22 +190,3 @@ export async function listOriginalContent(
     };
   }
 }
-
-/*
--- Grant usage on the schema
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-
--- Grant all privileges on the table
-GRANT ALL ON TABLE public.original_content TO anon, authenticated;
-
--- Enable RLS
-ALTER TABLE public.original_content ENABLE ROW LEVEL SECURITY;
-
--- Create a policy that allows inserts
-CREATE POLICY "Enable insert for all users" ON public.original_content
-FOR INSERT WITH CHECK (true);
-
--- Create a policy that allows select for all users
-CREATE POLICY "Enable select for all users" ON public.original_content
-FOR SELECT USING (true);
-*/

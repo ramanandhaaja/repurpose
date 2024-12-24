@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,20 @@ import {
   RefreshCw,
   Calendar as CalendarIcon
 } from 'lucide-react';
-import { useOriginalContentList } from '@/app/hooks/useManageTask';
+import { useOriginalContentList, useSchedulePost } from '@/app/hooks/useManageTask';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-//import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Calendar } from '@/components/ui/calendar';
-//import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import "react-day-picker/dist/style.css"; // Add this import at the top
-//import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface OriginalContent {
   id: string;
@@ -40,11 +46,19 @@ interface OriginalContent {
     output_type: string;
     tone: string;
     content: string;
+    created_at: string;
   }[];
 }
 
+type Platform = 'twitter' | 'instagram' | 'linkedin';
+
+type SelectedVersions = {
+  [key in Platform]: number;
+};
+
 const ContentRepurposingLayout = () => {
   const { contentList, isLoading, hasMore, loadMore } = useOriginalContentList();
+  const { schedulePost, isScheduling, error: scheduleError } = useSchedulePost();
   const [selectedContent, setSelectedContent] = useState<OriginalContent | null>(null);
   const [openPreviewDialog, setOpenPreviewDialog] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -54,13 +68,67 @@ const ContentRepurposingLayout = () => {
   const [selectedTime, setSelectedTime] = useState("12:00");
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
-  const getContentForPlatform = (platform: string) => {
-    return selectedContent?.repurposed_content?.find(
-      content => content.output_type.toLowerCase() === platform.toLowerCase()
-    )?.content || '';
+  const getLatestVersionIndex = (platform: Platform) => {
+    const count = getVersionCountForPlatform(platform);
+    return count > 0 ? 0 : -1;  
   };
 
-  const hasContentForPlatform = (platform: string) => {
+  const [selectedVersions, setSelectedVersions] = useState<SelectedVersions>({
+    twitter: -1,
+    instagram: -1,
+    linkedin: -1
+  });
+
+  useEffect(() => {
+    if (selectedContent) {
+      setSelectedVersions({
+        twitter: getLatestVersionIndex('twitter'),
+        instagram: getLatestVersionIndex('instagram'),
+        linkedin: getLatestVersionIndex('linkedin')
+      });
+    }
+  }, [selectedContent]);
+
+  const getContentForPlatform = (platform: Platform) => {
+    const contents = selectedContent?.repurposed_content
+      ?.filter(content => content.output_type.toLowerCase() === platform.toLowerCase())
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || [];
+    
+    const reversedIndex = selectedVersions[platform] >= 0 ? contents.length - 1 - selectedVersions[platform] : -1;
+    return contents[reversedIndex]?.content || '';
+  };
+
+  const getVersionCountForPlatform = (platform: Platform) => {
+    return selectedContent?.repurposed_content
+      ?.filter(content => content.output_type.toLowerCase() === platform.toLowerCase())
+      .length || 0;
+  };
+
+  const getVersionsForPlatform = (platform: Platform) => {
+    return selectedContent?.repurposed_content
+      ?.filter(content => content.output_type.toLowerCase() === platform.toLowerCase())
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || [];
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleVersionChange = (platform: Platform, version: number) => {
+    setSelectedVersions(prev => ({
+      ...prev,
+      [platform]: version
+    }));
+  };
+
+  const hasContentForPlatform = (platform: Platform) => {
     return !!selectedContent?.repurposed_content?.some(
       content => content.output_type.toLowerCase() === platform.toLowerCase() && content.content.trim().length > 0
     );
@@ -74,16 +142,39 @@ const ContentRepurposingLayout = () => {
     return datetime;
   };
 
-  const handleSchedule = () => {
-    const scheduledDateTime = getScheduledDateTime();
-    console.log('Scheduling for:', selectedPlatform, 'on', scheduledDateTime);
-    setIsScheduleOpen(false);
+  const handleSchedule = async () => {
+    try {
+      const scheduledDateTime = getScheduledDateTime();
+      if (!scheduledDateTime) {
+        console.error('No date selected');
+        return;
+      }
+      
+      console.log('Scheduling for:', selectedPlatform, 'on', scheduledDateTime);
+      
+      await schedulePost({
+        platform: selectedPlatform,
+        content: getContentForPlatform(selectedPlatform as Platform),
+        scheduledFor: scheduledDateTime,
+        originalContentId: selectedContent?.id || '',
+        repurposedContentId: selectedContent?.repurposed_content?.find(c => c.output_type === selectedPlatform)?.id || '',
+      });
+
+      setIsScheduleOpen(false);
+      // Optionally show a success toast or message
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to schedule post';
+      console.error('Failed to schedule post:', errorMessage);
+      // Optionally show an error toast or message
+    }
   };
 
   const handleScheduleClick = (platform: string) => {
     setSelectedPlatform(platform);
     setScheduleDialogOpen(true);
   };
+
+  const isScheduleValid = selectedDate !== undefined && selectedTime !== '';
 
   return (
     <div className="h-screen">
@@ -105,6 +196,7 @@ const ContentRepurposingLayout = () => {
                 ) : (
                   <>
                     {contentList.map((content) => (
+                      
                       <div
                         key={content.id}
                         className={`p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-500 transition-colors ${selectedContent?.id === content.id ? 'border-blue-500 bg-blue-50' : ''
@@ -140,9 +232,14 @@ const ContentRepurposingLayout = () => {
                               <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
                                 {content.content_type}
                               </span>
+                              {/*Array.from(new Set(content.repurposed_content?.map(r => r.output_type))).map((outputType) => (
+                                <span key={outputType} className="text-xs px-2 py-1 bg-blue-100 rounded-full">
+                                  {outputType}
+                                </span>
+                              ))*/}
                               {content.repurposed_content?.map((repurposed) => (
                                 <span key={repurposed.id} className="text-xs px-2 py-1 bg-blue-100 rounded-full">
-                                  {repurposed.output_type}
+                                  {repurposed.output_type} 
                                 </span>
                               ))}
                             </div>
@@ -205,19 +302,46 @@ const ContentRepurposingLayout = () => {
                       readOnly
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        {getContentForPlatform('twitter').length} / 280 characters
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={() => handleScheduleClick('twitter')}
-                        disabled={!hasContentForPlatform('twitter')}
-                      >
-                        <Download className="w-4 h-4" />
-                        Schedule Post
-                      </Button>
+                      <div className="space-x-2">
+                        {Array.from({ length: getVersionCountForPlatform('twitter') }, (_, i) => {
+                          const versions = getVersionsForPlatform('twitter');
+                          const version = versions[i];
+                          const versionNumber = i + 1;
+                          return (
+                            <TooltipProvider key={i}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={selectedVersions.twitter === i ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleVersionChange('twitter', i)}
+                                  >
+                                    V{versionNumber}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Created: {formatDate(version.created_at)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                          {getContentForPlatform('twitter').length} / 280 characters
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleScheduleClick('twitter')}
+                          disabled={!hasContentForPlatform('twitter')}
+                        >
+                          <Download className="w-4 h-4" />
+                          Schedule Post
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -232,19 +356,46 @@ const ContentRepurposingLayout = () => {
                       readOnly
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        {getContentForPlatform('instagram').length} / 2200 characters
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={() => handleScheduleClick('instagram')}
-                        disabled={!hasContentForPlatform('instagram')}
-                      >
-                        <Download className="w-4 h-4" />
-                        Schedule Post
-                      </Button>
+                      <div className="space-x-2">
+                        {Array.from({ length: getVersionCountForPlatform('instagram') }, (_, i) => {
+                          const versions = getVersionsForPlatform('instagram');
+                          const version = versions[i];
+                          const versionNumber = i + 1;
+                          return (
+                            <TooltipProvider key={i}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={selectedVersions.instagram === i ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleVersionChange('instagram', i)}
+                                  >
+                                    V{versionNumber}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Created: {formatDate(version.created_at)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                          {getContentForPlatform('instagram').length} / 2200 characters
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleScheduleClick('instagram')}
+                          disabled={!hasContentForPlatform('instagram')}
+                        >
+                          <Download className="w-4 h-4" />
+                          Schedule Post
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -259,19 +410,46 @@ const ContentRepurposingLayout = () => {
                       readOnly
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        {getContentForPlatform('linkedin').length} / 3000 characters
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={() => handleScheduleClick('linkedin')}
-                        disabled={!hasContentForPlatform('linkedin')}
-                      >
-                        <Download className="w-4 h-4" />
-                        Schedule Post
-                      </Button>
+                      <div className="space-x-2">
+                        {Array.from({ length: getVersionCountForPlatform('linkedin') }, (_, i) => {
+                          const versions = getVersionsForPlatform('linkedin');
+                          const version = versions[i];
+                          const versionNumber = i + 1;
+                          return (
+                            <TooltipProvider key={i}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={selectedVersions.linkedin === i ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleVersionChange('linkedin', i)}
+                                  >
+                                    V{versionNumber}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Created: {formatDate(version.created_at)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                          {getContentForPlatform('linkedin').length} / 3000 characters
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleScheduleClick('linkedin')}
+                          disabled={!hasContentForPlatform('linkedin')}
+                        >
+                          <Download className="w-4 h-4" />
+                          Schedule Post
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -305,7 +483,7 @@ const ContentRepurposingLayout = () => {
             <div className="space-y-2">
               <h4 className="font-medium">Content Preview</h4>
               <div className="p-4 rounded-md bg-gray-50 max-h-[200px] overflow-y-auto">
-                {getContentForPlatform(selectedPlatform)}
+                {getContentForPlatform(selectedPlatform as Platform)}
               </div>
             </div>
 
@@ -338,7 +516,6 @@ const ContentRepurposingLayout = () => {
                 </div>
 
 
-
                 <select
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
@@ -362,10 +539,13 @@ const ContentRepurposingLayout = () => {
             <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              handleSchedule();
-              setScheduleDialogOpen(false);
-            }}>
+            <Button 
+              onClick={() => {
+                handleSchedule();
+                setScheduleDialogOpen(false);
+              }}
+              disabled={!isScheduleValid}
+            >
               Schedule
             </Button>
           </div>
